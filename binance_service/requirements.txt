@@ -1,0 +1,5 @@
+
+aiohttp
+python-dotenv
+sqlalchemy>=2
+psycopg2-binary

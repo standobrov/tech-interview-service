@@ -1,0 +1,14 @@
+[Unit]
+Description=Tech Interview Stand Binance Connector Service
+After=network.target
+
+[Service]
+User=interview_user
+Group=interview_user
+WorkingDirectory=/opt/app
+Environment="PATH=/opt/app/venv/bin"
+ExecStart=/opt/app/venv/bin/python binance_service/main.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 

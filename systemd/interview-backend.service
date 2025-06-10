@@ -1,0 +1,15 @@
+[Unit]
+Description=Tech Interview Stand Dashboard Backend Service
+After=network.target postgresql.service
+
+[Service]
+User=interview_user
+Group=interview_user
+WorkingDirectory=/opt/app
+Environment="PATH=/opt/app/venv/bin"
+LoadCredential=db-url:/etc/tech-interview-stand/db-url
+ExecStart=/opt/app/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 
