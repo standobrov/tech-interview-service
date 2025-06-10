@@ -30,8 +30,8 @@ echo "Password: $SSH_PASS"
 echo "Please save these credentials!"
 
 # Update system packages
-# echo "Updating system packages..."
-# sudo apt-get update
+echo "Updating system packages..."
+sudo apt-get update
 # sudo apt-get upgrade -y
 
 # Install required system packages
