@@ -1,13 +1,13 @@
 [Unit]
-Description=Tech Interview Stand Binance Connector Service
-After=network.target
+Description=Tech Interview Stand Binance Worker Service
+After=network.target postgresql.service
 
 [Service]
-User=interview_user
-Group=interview_user
+User=interview_service_user
+Group=interview_service_user
 WorkingDirectory=/opt/app
 Environment="PATH=/opt/app/venv/bin"
-ExecStart=/opt/app/venv/bin/python binance_service/main.py
+ExecStart=/opt/app/venv/bin/python3 binance_service/worker.py
 Restart=always
 
 [Install]

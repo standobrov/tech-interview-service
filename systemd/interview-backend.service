@@ -7,7 +7,6 @@ User=interview_service_user
 Group=interview_service_user
 WorkingDirectory=/opt/app
 Environment="PATH=/opt/app/venv/bin"
-LoadCredential=db-url:/etc/tech-interview-stand/db-url
 ExecStart=/opt/app/venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 

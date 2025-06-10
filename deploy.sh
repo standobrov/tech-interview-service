@@ -129,4 +129,8 @@ echo ""
 echo "User roles:"
 echo "1. $SSH_USER - SSH user with sudo rights"
 echo "2. $ADMIN_USER - Admin user (use 'su' to switch, no SSH access)"
-echo "3. $SERVICE_USER - Service user (no SSH access, no sudo rights)" 
+echo "3. $SERVICE_USER - Service user (no SSH access, no sudo rights)"
+
+# Add Environment=DATABASE_URL=postgresql://interview_service_user:interview_password@localhost:5432/interview_db to systemd service files
+sudo sed -i "s/Environment=.*/Environment=DATABASE_URL=postgresql:\/\/interview_service_user:interview_password@localhost:5432\/interview_db/" /etc/systemd/system/tech-interview-stand-backend.service
+sudo sed -i "s/Environment=.*/Environment=DATABASE_URL=postgresql:\/\/interview_service_user:interview_password@localhost:5432\/interview_db/" /etc/systemd/system/tech-interview-stand-binance.service 
