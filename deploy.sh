@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Exit on error
-set -e
+#set -e
 
 # Word lists for username generation
 names=(
@@ -30,9 +30,9 @@ echo "Password: $SSH_PASS"
 echo "Please save these credentials!"
 
 # Update system packages
-echo "Updating system packages..."
-sudo apt-get update
-sudo apt-get upgrade -y
+# echo "Updating system packages..."
+# sudo apt-get update
+# sudo apt-get upgrade -y
 
 # Install required system packages
 echo "Installing required system packages..."
@@ -80,6 +80,7 @@ echo "Setting up PostgreSQL..."
 sudo -u postgres psql -c "CREATE USER $SERVICE_USER WITH PASSWORD 'interview_password';"
 sudo -u postgres psql -c "CREATE DATABASE interview_db;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE interview_db TO $SERVICE_USER;"
+sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $SERVICE_USER;"
 
 # Initialize database
 echo "Initializing database..."
@@ -87,14 +88,15 @@ sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
-sudo cp systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-api.service
-sudo cp systemd/interview-binance.service /etc/systemd/system/tech-interview-stand-worker.service
+cd ~/tech-interview-service
+sudo cp systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-backend.service
+sudo cp systemd/interview-binance.service /etc/systemd/system/tech-interview-stand-binance.service
 
 # Update service files to use service user
-sudo sed -i "s/User=.*/User=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-api.service
-sudo sed -i "s/Group=.*/Group=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-api.service
-sudo sed -i "s/User=.*/User=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-worker.service
-sudo sed -i "s/Group=.*/Group=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-worker.service
+sudo sed -i "s/User=.*/User=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-backend.service
+sudo sed -i "s/Group=.*/Group=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-backend.service
+sudo sed -i "s/User=.*/User=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-binance.service
+sudo sed -i "s/Group=.*/Group=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-binance.service
 
 # Set up nginx
 echo "Setting up nginx..."
@@ -108,16 +110,16 @@ sudo chown -R www-data:www-data /var/www/tech-interview-stand
 # Reload systemd and start services
 echo "Starting services..."
 sudo systemctl daemon-reload
-sudo systemctl enable tech-interview-stand-api
-sudo systemctl enable tech-interview-stand-worker
-sudo systemctl start tech-interview-stand-api
-sudo systemctl start tech-interview-stand-worker
+sudo systemctl enable tech-interview-stand-backend
+sudo systemctl enable tech-interview-stand-binance
+sudo systemctl start tech-interview-stand-backend
+sudo systemctl start tech-interview-stand-binance
 sudo systemctl restart nginx
 
 echo "Deployment completed successfully!"
 echo "You can check service status with:"
-echo "sudo systemctl status tech-interview-stand-api"
-echo "sudo systemctl status tech-interview-stand-worker"
+echo "sudo systemctl status tech-interview-stand-backend"
+echo "sudo systemctl status tech-interview-stand-binance"
 echo "sudo systemctl status nginx"
 echo ""
 echo "IMPORTANT: SSH credentials (save them!):"
