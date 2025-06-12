@@ -60,7 +60,7 @@ sudo chown "$SERVICE_USER:$SERVICE_USER" /opt/app
 
 # Copy application files
 echo "Copying application files..."
-sudo -u "$SERVICE_USER" cp -r backend binance_service frontend init.sql init-db.sh /opt/app/
+sudo -u "$SERVICE_USER" cp -r backend binance_service frontend init.sql init-db.sh requirements.txt /opt/app/
 
 # Create credentials directory and file
 echo "Setting up credentials..."
@@ -73,7 +73,7 @@ sudo chown root:root /etc/tech-interview-stand/db-url
 echo "Setting up Python virtual environment..."
 cd /opt/app
 sudo -u "$SERVICE_USER" python3 -m venv venv
-sudo -u "$SERVICE_USER" /opt/app/venv/bin/pip install -r backend/requirements.txt
+sudo -u "$SERVICE_USER" /opt/app/venv/bin/pip install -r requirements.txt
 
 # Set up PostgreSQL
 echo "Setting up PostgreSQL..."
