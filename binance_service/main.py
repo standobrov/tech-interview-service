@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-SYMBOL = os.getenv("BINANCE_SYMBOL", "BTCUSDT")
-INTERVAL = int(os.getenv("FETCH_INTERVAL", 5))
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+SYMBOL = "BTCUSDT"
+INTERVAL = 5
+LOG_LEVEL = "INFO"
 
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger("binance_worker")
@@ -32,17 +32,7 @@ async def fetch_trade(session):
                 "trade_timestamp": datetime.fromtimestamp(t["time"]/1000, timezone.utc),
             }
 
-def save_trade(trade):
-    global last_saved_trade
-    
-    # Skip if this is the same trade as last time
-    if (last_saved_trade and 
-        last_saved_trade["trade_timestamp"] == trade["trade_timestamp"] and
-        last_saved_trade["price"] == trade["price"] and
-        last_saved_trade["quantity"] == trade["quantity"]):
-        logger.debug("Skipping duplicate trade %s", trade["trade_timestamp"])
-        return False
-    
+def save_trade(trade): 
     with engine.begin() as conn:
         conn.execute(
             text("INSERT INTO trades (symbol, price, quantity, trade_timestamp) "
@@ -57,7 +47,7 @@ async def main():
         while True:
             try:
                 trade = await fetch_trade(session)
-                if trade and trade["quantity"] > 0:
+                if trade:
                     if save_trade(trade):
                         logger.info("Saved new trade %s", trade["trade_timestamp"])
                     else:
