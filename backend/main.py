@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, status
 from sqlalchemy import text
-from .database import get_session
+from ..database import get_session
 from .models import Trade
 from decimal import Decimal
 from typing import List
