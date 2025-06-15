@@ -50,8 +50,10 @@ echo "Creating admin user..."
 sudo useradd -m -s /bin/bash "$ADMIN_USER"
 echo "$ADMIN_USER:$ADMIN_PASS" | sudo chpasswd
 sudo usermod -aG sudo "$ADMIN_USER"
-# Prevent SSH access
-sudo chsh -s /bin/false "$ADMIN_USER"
+
+# Prevent SSH access for interview_user
+echo "DenyUsers $ADMIN_USER" | sudo tee /etc/ssh/sshd_config.d/deny_interview_user.conf > /dev/null
+sudo systemctl restart sshd
 
 # Create service user (can't connect via SSH, no sudo rights)
 echo "Creating service user..."
@@ -87,7 +89,7 @@ sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $SERVICE
 
 # Initialize database
 echo "Initializing database..."
-sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f init.sql
+sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f database/init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
@@ -111,21 +113,13 @@ sudo chown -R www-data:www-data /var/www/tech-interview-stand
 
 # Generate help.sh with actual credentials
 echo "Generating help.sh..."
-cat > /home/$SSH_USER/help.sh <<EOF
+cat > /tmp/help.sh <<EOF
 #!/bin/bash
 
 echo "🔑 Your SSH Credentials"
 echo "======================"
 echo "Username: $SSH_USER"
 echo "Password: $SSH_PASS"
-echo
-
-echo "⚠️  Troubleshooting Access"
-echo "========================"
-echo "For troubleshooting, switch to user $ADMIN_USER"
-echo "   Password: $ADMIN_PASS"
-echo
-echo "This user has sudo rights and is intended for system maintenance."
 echo
 
 echo "🗄️ Database Credentials"
@@ -138,9 +132,17 @@ echo "Port: 5432"
 echo "Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/interview_db"
 echo
 
+echo "⚠️  Troubleshooting Access"
+echo "========================"
+echo "For troubleshooting, switch to user $ADMIN_USER"
+echo "   Password: $ADMIN_PASS"
+echo
+echo "This user has sudo rights and is intended for system maintenance."
+echo
+
 echo "🔧 System Information"
 echo "==================="
-echo "1. Frontend (Nginx)"
+echo "1. Dashboard frontendn (Nginx)"
 echo "   - Serves static files"
 echo "   - Proxies API requests to backend"
 echo "   - Systemd unit: nginx.service"
@@ -172,11 +174,15 @@ echo "  - price_per_unit: NUMERIC(18,8) (computed)"
 echo "  - trade_timestamp: TIMESTAMPTZ"
 echo "  - suspicious: BOOLEAN"
 echo
+
 echo "================================="
 echo "generated: $(date)"
 EOF
 
-sudo chown $SSH_USER:$SSH_USER /home/$SSH_USER/help.sh
+cd /tmp
+tar czf /home/$SSH_USER/help.tar.gz help.sh
+sudo chown $SSH_USER:$SSH_USER /home/$SSH_USER/help.tar.gz
+rm /tmp/help.sh
 
 # Reload systemd and start services
 echo "Starting services..."
