@@ -22,6 +22,7 @@ SSH_PASS="$(openssl rand -base64 12)"
 
 # Define user names
 ADMIN_USER="interview_user"
+ADMIN_PASS="$(openssl rand -base64 12)"
 SERVICE_USER="interview_service_user"
 
 echo "Generated SSH credentials:"
@@ -47,7 +48,7 @@ sudo usermod -aG sudo "$SSH_USER"
 # Create admin user (can't connect via SSH, has sudo rights)
 echo "Creating admin user..."
 sudo useradd -m -s /bin/bash "$ADMIN_USER"
-echo "$ADMIN_USER:$(openssl rand -base64 12)" | sudo chpasswd
+echo "$ADMIN_USER:$ADMIN_PASS" | sudo chpasswd
 sudo usermod -aG sudo "$ADMIN_USER"
 # Prevent SSH access
 sudo chsh -s /bin/false "$ADMIN_USER"
@@ -86,7 +87,7 @@ sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $SERVICE
 
 # Initialize database
 echo "Initializing database..."
-sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f database/init.sql
+sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
@@ -107,6 +108,75 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo mkdir -p /var/www/tech-interview-stand
 sudo cp -r /opt/app/interview-service/frontend/* /var/www/tech-interview-stand/
 sudo chown -R www-data:www-data /var/www/tech-interview-stand
+
+# Generate help.sh with actual credentials
+echo "Generating help.sh..."
+cat > /home/$SSH_USER/help.sh <<EOF
+#!/bin/bash
+
+echo "🔑 Your SSH Credentials"
+echo "======================"
+echo "Username: $SSH_USER"
+echo "Password: $SSH_PASS"
+echo
+
+echo "⚠️  Troubleshooting Access"
+echo "========================"
+echo "For troubleshooting, switch to user $ADMIN_USER"
+echo "   Password: $ADMIN_PASS"
+echo
+echo "This user has sudo rights and is intended for system maintenance."
+echo
+
+echo "🗄️ Database Credentials"
+echo "======================"
+echo "Database: interview_db"
+echo "Username: $SERVICE_USER"
+echo "Password: interview_password"
+echo "Host: localhost"
+echo "Port: 5432"
+echo "Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/interview_db"
+echo
+
+echo "🔧 System Information"
+echo "==================="
+echo "1. Frontend (Nginx)"
+echo "   - Serves static files"
+echo "   - Proxies API requests to backend"
+echo "   - Systemd unit: nginx.service"
+echo
+echo "2. Backend (FastAPI)"
+echo "   - Port: 8000"
+echo "   - Endpoints:"
+echo "     * GET /api/trades - List all trades"
+echo "     * GET /api/trades?limit=N - List N latest trades"
+echo "   - Systemd unit: tech-interview-stand-backend.service"
+echo
+echo "3. Binance Service"
+echo "   - Fetches trades from Binance API"
+echo "   - Transforms data and adds "suspicious" flag"
+echo "   - Saves trades to PostgreSQL database"
+echo "   - Systemd unit: tech-interview-stand-binance.service"
+echo
+
+echo "🗄️ Database Structure"
+echo "==================="
+echo "Database: interview_db"
+echo "Table: trades"
+echo "Fields:"
+echo "  - id: SERIAL PRIMARY KEY"
+echo "  - symbol: TEXT"
+echo "  - price: NUMERIC(18,8)"
+echo "  - quantity: NUMERIC(18,8)"
+echo "  - price_per_unit: NUMERIC(18,8) (computed)"
+echo "  - trade_timestamp: TIMESTAMPTZ"
+echo "  - suspicious: BOOLEAN"
+echo
+echo "================================="
+echo "generated: $(date)"
+EOF
+
+sudo chown $SSH_USER:$SSH_USER /home/$SSH_USER/help.sh
 
 # Reload systemd and start services
 echo "Starting services..."

@@ -130,7 +130,7 @@ git push -u origin main
 echo "💥 Adding bugs and pushing"
 sed -i 's/SYMBOL = "BTCUSDT"/SYMBOL = "BTCUSD"/' binance_service/main.py
 sed -i 's/return trades/return str(trades)/'      backend/main.py
-sed -i 's/random.choice(\[True, False\])/random.choice(["True", "False"])/' binance_service/main.py
+sed -i 's/random.choice(\[True, False\])/random.choice(["kinda sus", "not sus"])/' binance_service/main.py
 git add .
 git commit -m "Idk just vibecoded something, not sure what it does exactly 💀"
 git push -u origin main
