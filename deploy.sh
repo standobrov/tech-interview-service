@@ -43,7 +43,6 @@ sudo apt-get install -y python3 python3-pip python3-venv nginx postgresql postgr
 echo "Creating SSH user..."
 sudo useradd -m -s /bin/bash "$SSH_USER"
 echo "$SSH_USER:$SSH_PASS" | sudo chpasswd
-sudo usermod -aG sudo "$SSH_USER"
 
 # Create admin user (can't connect via SSH, has sudo rights)
 echo "Creating admin user..."
@@ -87,9 +86,14 @@ sudo -u postgres psql -c "CREATE DATABASE interview_db;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE interview_db TO $SERVICE_USER;"
 sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $SERVICE_USER;"
 
+# Grant database access to interview_user
+sudo -u postgres psql -c "CREATE USER $ADMIN_USER WITH PASSWORD '$ADMIN_PASS';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE interview_db TO $ADMIN_USER;"
+sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $ADMIN_USER;"
+
 # Initialize database
 echo "Initializing database..."
-sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f database/init.sql
+sudo -u postgres psql -d interview_db -f /tmp/init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
@@ -123,8 +127,9 @@ Password: $SSH_PASS
 
 ⚠️  Troubleshooting Access
 ========================
-For troubleshooting, switch to user $ADMIN_USER
-   Password: $ADMIN_PASS
+For troubleshooting, switch to user 
+User: $ADMIN_USER
+Password: $ADMIN_PASS
 
 This user has sudo rights and is intended for system maintenance.
 
@@ -185,7 +190,6 @@ cat > /tmp/help.sh <<EOF
 
 DOCUMENTATION="$HELP_CONTENT_BASE64"
 
-# Decode and display
 echo "\$DOCUMENTATION" | base64 -d
 EOF
 
