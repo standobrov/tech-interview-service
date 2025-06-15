@@ -60,7 +60,7 @@ sudo chown "$SERVICE_USER:$SERVICE_USER" /opt/app
 
 # Copy application files
 echo "Copying application files..."
-sudo -u "$SERVICE_USER" cp -r backend binance_service frontend init.sql init-db.sh requirements.txt /opt/app/
+sudo -u "$SERVICE_USER" cp -r interview-service init.sql init-db.sh requirements.txt /opt/app/
 
 # Create credentials directory and file
 echo "Setting up credentials..."
@@ -89,8 +89,8 @@ sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f init.sql
 # Copy systemd service files
 echo "Setting up systemd services..."
 cd ~/tech-interview-service
-sudo cp systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-backend.service
-sudo cp systemd/interview-binance.service /etc/systemd/system/tech-interview-stand-binance.service
+sudo cp interview-service/systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-backend.service
+sudo cp interview-service/systemd/interview-binance.service /etc/systemd/system/tech-interview-stand-binance.service
 
 # Update service files to use service user
 sudo sed -i "s/User=.*/User=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-backend.service
@@ -100,11 +100,11 @@ sudo sed -i "s/Group=.*/Group=$SERVICE_USER/" /etc/systemd/system/tech-interview
 
 # Set up nginx
 echo "Setting up nginx..."
-sudo cp frontend/nginx.conf /etc/nginx/sites-available/tech-interview-stand
+sudo cp interview-service/frontend/nginx.conf /etc/nginx/sites-available/tech-interview-stand
 sudo ln -sf /etc/nginx/sites-available/tech-interview-stand /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo mkdir -p /var/www/tech-interview-stand
-sudo cp -r frontend/* /var/www/tech-interview-stand/
+sudo cp -r interview-service/frontend/* /var/www/tech-interview-stand/
 sudo chown -R www-data:www-data /var/www/tech-interview-stand
 
 # Reload systemd and start services

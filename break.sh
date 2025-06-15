@@ -2,7 +2,7 @@
 set -e
 
 TARGET="/opt/app/binance_service/main.py"
-BACKEND_TARGET="/opt/app/backend/app/main.py"
+BACKEND_TARGET="/opt/app/backend/main.py"
 
 if [ ! -f "$TARGET" ]; then
   echo "Файл $TARGET не найден!"
