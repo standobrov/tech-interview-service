@@ -36,7 +36,7 @@ sudo apt-get update
 
 # Install required system packages
 echo "Installing required system packages..."
-sudo apt-get install -y python3 python3-pip python3-venv nginx postgresql postgresql-contrib
+sudo apt-get install -y python3 python3-pip python3-venv nginx postgresql postgresql-contrib git
 
 # Create SSH user (can connect via SSH, has sudo rights)
 echo "Creating SSH user..."
@@ -58,9 +58,11 @@ sudo useradd -r -s /bin/false "$SERVICE_USER"
 sudo mkdir -p /opt/app
 sudo chown "$SERVICE_USER:$SERVICE_USER" /opt/app
 
-# Copy application files
-echo "Copying application files..."
-sudo -u "$SERVICE_USER" cp -r interview-service init.sql init-db.sh requirements.txt /opt/app/
+# Clone repository
+echo "Cloning repository..."
+cd /opt/app
+sudo -u "$SERVICE_USER" git clone http://demo:demo123@localhost:3000/demo/interview-service.git
+sudo chown -R "$SERVICE_USER:$SERVICE_USER" /opt/app/interview-service
 
 # Create credentials directory and file
 echo "Setting up credentials..."
@@ -71,9 +73,9 @@ sudo chown root:root /etc/tech-interview-stand/db-url
 
 # Create and activate Python virtual environment
 echo "Setting up Python virtual environment..."
-cd /opt/app
+cd /opt/app/interview-service
 sudo -u "$SERVICE_USER" python3 -m venv venv
-sudo -u "$SERVICE_USER" /opt/app/venv/bin/pip install -r requirements.txt
+sudo -u "$SERVICE_USER" /opt/app/interview-service/venv/bin/pip install -r requirements.txt
 
 # Set up PostgreSQL
 echo "Setting up PostgreSQL..."
@@ -88,9 +90,8 @@ sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
-cd ~/tech-interview-service
-sudo cp interview-service/systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-backend.service
-sudo cp interview-service/systemd/interview-binance.service /etc/systemd/system/tech-interview-stand-binance.service
+sudo cp /opt/app/interview-service/systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-backend.service
+sudo cp /opt/app/interview-service/systemd/interview-binance.service /etc/systemd/system/tech-interview-stand-binance.service
 
 # Update service files to use service user
 sudo sed -i "s/User=.*/User=$SERVICE_USER/" /etc/systemd/system/tech-interview-stand-backend.service
@@ -100,11 +101,11 @@ sudo sed -i "s/Group=.*/Group=$SERVICE_USER/" /etc/systemd/system/tech-interview
 
 # Set up nginx
 echo "Setting up nginx..."
-sudo cp interview-service/frontend/nginx.conf /etc/nginx/sites-available/tech-interview-stand
+sudo cp /opt/app/interview-service/frontend/nginx.conf /etc/nginx/sites-available/tech-interview-stand
 sudo ln -sf /etc/nginx/sites-available/tech-interview-stand /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo mkdir -p /var/www/tech-interview-stand
-sudo cp -r interview-service/frontend/* /var/www/tech-interview-stand/
+sudo cp -r /opt/app/interview-service/frontend/* /var/www/tech-interview-stand/
 sudo chown -R www-data:www-data /var/www/tech-interview-stand
 
 # Reload systemd and start services

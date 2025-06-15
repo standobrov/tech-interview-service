@@ -1,130 +1,138 @@
 #!/bin/bash
 set -e
 
+# ─── ПАРАМЕТРЫ ─────────────────────────────────────────────────────────────
 GITEA_VERSION="1.21.11"
 GITEA_USER="demo"
 GITEA_PASS="demo123"
 REPO_NAME="interview-service"
 REPO_DIR="interview-service"
+GITEA_ROOT="/var/lib/gitea"
+GITEA_URL="http://localhost:3000"
+SYSTEMD_UNIT="/etc/systemd/system/gitea.service"
+BIN_PATH="/usr/local/bin/gitea"
 
-# Проверка, есть ли папка
-if [ ! -d "$REPO_DIR" ]; then
-  echo "❌ Папка $REPO_DIR не найдена"
-  exit 1
-fi
+# ─── 0. СНОСИМ ПРЕЖНЮЮ GITEA ПОД НОЛЬ ─────────────────────────────────────
+systemctl stop    gitea 2>/dev/null || true
+systemctl disable gitea 2>/dev/null || true
+rm -f   "$SYSTEMD_UNIT"
+systemctl daemon-reload
+pkill -f "$BIN_PATH" 2>/dev/null || true
+rm -f  "$BIN_PATH"
+rm -rf "$GITEA_ROOT" /etc/gitea
 
-# Установка Gitea (если не установлен)
-if ! command -v gitea &> /dev/null; then
-  echo "📦 Устанавливаю Gitea..."
-  wget -q https://dl.gitea.io/gitea/${GITEA_VERSION}/gitea-${GITEA_VERSION}-linux-amd64 -O /usr/local/bin/gitea
-  chmod +x /usr/local/bin/gitea
+# ─── 1. ПАКЕТЫ ────────────────────────────────────────────────────────────
+apt-get update -y
+apt-get install -y jq curl git
 
-  useradd --system --shell /bin/bash --comment 'Git Version Control' --create-home --home-dir /home/gitea gitea || true
+# ─── 2. УСТАНАВЛИВАЕМ GITEA ───────────────────────────────────────────────
+wget -q https://dl.gitea.io/gitea/${GITEA_VERSION}/gitea-${GITEA_VERSION}-linux-amd64 -O "$BIN_PATH"
+chmod +x "$BIN_PATH"
 
-  mkdir -p /var/lib/gitea/{custom,data,log}
-  mkdir -p /etc/gitea
-  chown -R gitea:gitea /var/lib/gitea/
-  chown -R gitea:gitea /etc/gitea/
-  chmod -R 750 /var/lib/gitea/
-fi
+useradd --system --shell /bin/bash --comment 'Git' \
+        --create-home --home-dir /home/gitea gitea 2>/dev/null || true
 
-# systemd unit
-if [ ! -f /etc/systemd/system/gitea.service ]; then
-  echo "⚙️ Создаю systemd unit..."
-  cat > /etc/systemd/system/gitea.service <<EOF
+mkdir -p "$GITEA_ROOT"/{custom,data,log,tmp} /etc/gitea
+chown -R gitea:gitea "$GITEA_ROOT" /etc/gitea
+chmod -R 750 "$GITEA_ROOT"
+
+cat > /etc/gitea/app.ini <<EOF
+[server]
+HTTP_PORT = 3000
+ROOT_URL  = $GITEA_URL/
+START_SSH_SERVER = false
+
+[database]
+DB_TYPE = sqlite3
+PATH    = $GITEA_ROOT/data/gitea.db
+
+[security]
+INSTALL_LOCK = true
+SECRET_KEY   = somesecret
+
+[repository]
+DEFAULT_BRANCH        = main
+ALLOW_PUSH_TO_CREATE  = true
+EOF
+chown -R gitea:gitea /etc/gitea
+
+cat > "$SYSTEMD_UNIT" <<EOF
 [Unit]
-Description=Gitea (Git with a cup of tea)
+Description=Gitea
 After=network.target
 
 [Service]
-RestartSec=2s
-Type=simple
 User=gitea
 Group=gitea
-WorkingDirectory=/var/lib/gitea/
-ExecStart=/usr/local/bin/gitea web --config /etc/gitea/app.ini
+WorkingDirectory=$GITEA_ROOT
+Environment=GITEA_WORK_DIR=$GITEA_ROOT
+ExecStart=$BIN_PATH web --work-path $GITEA_ROOT --config /etc/gitea/app.ini
 Restart=always
-Environment=USER=gitea HOME=/home/gitea GITEA_WORK_DIR=/var/lib/gitea
+RestartSec=2s
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-  systemctl daemon-reexec
-  systemctl daemon-reload
-fi
-
-# Запуск Gitea
-echo "🚀 Запускаю Gitea..."
+systemctl daemon-reload
 systemctl enable gitea
-systemctl start gitea
+systemctl start  gitea
 
-echo "⏳ Жду старта Gitea..."
-sleep 5
+echo "⏳ Ждём, пока Gitea поднимется…"
+for i in {1..60}; do
+  if curl -fs "$GITEA_URL/api/v1/version" >/dev/null; then
+    echo "✅ Gitea запустилась"
+    break
+  fi
+  sleep 1
+done
 
-# Создание пользователя demo
-echo "👤 Создаю пользователя $GITEA_USER..."
-curl -s -X POST http://localhost:3000/api/v1/admin/users \
-  -H "Content-Type: application/json" \
-  -u "admin:admin" \
-  -d '{
-    "email": "demo@example.com",
-    "username": "'"$GITEA_USER"'",
-    "password": "'"$GITEA_PASS"'"
-  }' || echo "ℹ️ Возможно, пользователь уже существует"
+# ─── 3. СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ demo ─────────────────────────────────────────
+sudo -u gitea "$BIN_PATH" --work-path "$GITEA_ROOT" --config /etc/gitea/app.ini \
+  admin user create --username "$GITEA_USER" \
+  --password "$GITEA_PASS" --email "$GITEA_USER@example.com" --admin \
+  2>/dev/null || true
 
-# Получение токена
-echo "🔑 Получаю токен..."
-TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/users/$GITEA_USER/tokens \
-  -u "$GITEA_USER:$GITEA_PASS" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"init-token"}' | jq -r .sha1)
+# ─── 4. СОЗДАЁМ / ЧИСТИМ РЕПОЗИТОРИЙ ЧЕРЕЗ BASIC-AUTH ────────────────────
+echo "📁 Пересоздаём репозиторий $REPO_NAME"
+curl -s -X DELETE "$GITEA_URL/api/v1/repos/$GITEA_USER/$REPO_NAME" \
+     -u "$GITEA_USER:$GITEA_PASS" >/dev/null || true
 
-# Создание репозитория
-echo "📁 Создаю репозиторий $REPO_NAME..."
-curl -s -X POST http://localhost:3000/api/v1/user/repos \
-  -H "Authorization: token $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"'"$REPO_NAME"'"}' > /dev/null
+HTTP=$(curl -s -o /tmp/resp.json -w '%{http_code}' \
+        -X POST "$GITEA_URL/api/v1/user/repos" \
+        -u "$GITEA_USER:$GITEA_PASS" \
+        -H "Content-Type: application/json" \
+        -d '{"name":"'"$REPO_NAME"'","auto_init":true,"default_branch":"main"}')
 
-# Инициализация git и пуш
+if [ "$HTTP" != "201" ]; then
+  echo "❌ Не удалось создать репозиторий (HTTP $HTTP)"
+  cat /tmp/resp.json
+  exit 1
+fi
+echo "✅ Репозиторий создан"
+
+# ─── 5. ДВА КОММИТА И PUSH ───────────────────────────────────────────────
 cd "$REPO_DIR"
-git init
-git config user.name "$GITEA_USER"
-git config user.email "demo@example.com"
+rm -rf .git
+git init --initial-branch=main
+git config user.name  "$GITEA_USER"
+git config user.email "$GITEA_USER@example.com"
 git remote add origin "http://$GITEA_USER:$GITEA_PASS@localhost:3000/$GITEA_USER/$REPO_NAME.git"
+
+# подтягиваем README, чтобы push был fast-forward
+git pull --quiet origin main
+
+echo "🚀 Пушим рабочий коммит"
 git add .
-git commit -m "Initial commit"
-git push -u origin master
+git commit -m "✅ Initial working commit"
+git push -u origin main
 
-echo "✅ Репозиторий $REPO_NAME успешно пушнут в Gitea!"
-
-TARGET="interview-service/binance_service/main.py"
-BACKEND_TARGET="interview-service/backend/main.py"
-
-if [ ! -f "$TARGET" ]; then
-  echo "Файл $TARGET не найден!"
-  exit 1
-fi
-
-if [ ! -f "$BACKEND_TARGET" ]; then
-  echo "Файл $BACKEND_TARGET не найден!"
-  exit 1
-fi
-
-# Ломаем SYMBOL
-sed -i 's/SYMBOL = "BTCUSDT"/SYMBOL = "BTCUSD"/' "$TARGET"
-
-# Модифицируем backend чтобы возвращал str(trades)
-sed -i 's/return trades/return str(trades)/' "$BACKEND_TARGET"
-
-# Replace boolean values with strings in transform_trade function
-sed -i 's/random.choice(\[True, False\])/random.choice(["True", "False"])/' "$TARGET"
-
-echo "binance_service сломан: SYMBOL теперь BTCUSD, quantity теперь строка."
-echo "backend модифицирован: return trades заменен на return str(trades)."
-echo "Setup completed successfully!"
-
+echo "💥 Вносим баги и пушим"
+sed -i 's/SYMBOL = "BTCUSDT"/SYMBOL = "BTCUSD"/' binance_service/main.py
+sed -i 's/return trades/return str(trades)/'      backend/main.py
+sed -i 's/random.choice(\[True, False\])/random.choice(["True", "False"])/' binance_service/main.py
 git add .
-git commit -m "vibecoded something, not sure what exactly"
-git push -u origin master
+git commit -m "💥 break: str instead of Decimal + fake bool"
+git push -u origin main
+
+echo "✅ Gitea готова, два коммита отпушены"
