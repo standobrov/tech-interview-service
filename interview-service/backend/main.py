@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, status
 from sqlalchemy import text
 from .database import get_session
 from .models import Trade
-from .services.binance_service import BinanceService
 from decimal import Decimal
 from typing import List
 import os
