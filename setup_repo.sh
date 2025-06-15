@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# ─── ПАРАМЕТРЫ ─────────────────────────────────────────────────────────────
+# ─── PARAMETERS ─────────────────────────────────────────────────────────────
 GITEA_VERSION="1.21.11"
 GITEA_USER="demo"
 GITEA_PASS="demo123"
@@ -12,7 +12,7 @@ GITEA_URL="http://localhost:3000"
 SYSTEMD_UNIT="/etc/systemd/system/gitea.service"
 BIN_PATH="/usr/local/bin/gitea"
 
-# ─── 0. СНОСИМ ПРЕЖНЮЮ GITEA ПОД НОЛЬ ─────────────────────────────────────
+# ─── 0. CLEAN UP PREVIOUS GITEA INSTALLATION ─────────────────────────────────
 systemctl stop    gitea 2>/dev/null || true
 systemctl disable gitea 2>/dev/null || true
 rm -f   "$SYSTEMD_UNIT"
@@ -21,11 +21,11 @@ pkill -f "$BIN_PATH" 2>/dev/null || true
 rm -f  "$BIN_PATH"
 rm -rf "$GITEA_ROOT" /etc/gitea
 
-# ─── 1. ПАКЕТЫ ────────────────────────────────────────────────────────────
+# ─── 1. PACKAGES ────────────────────────────────────────────────────────────
 apt-get update -y
 apt-get install -y jq curl git
 
-# ─── 2. УСТАНАВЛИВАЕМ GITEA ───────────────────────────────────────────────
+# ─── 2. INSTALL GITEA ───────────────────────────────────────────────────────
 wget -q https://dl.gitea.io/gitea/${GITEA_VERSION}/gitea-${GITEA_VERSION}-linux-amd64 -O "$BIN_PATH"
 chmod +x "$BIN_PATH"
 
@@ -78,23 +78,23 @@ systemctl daemon-reload
 systemctl enable gitea
 systemctl start  gitea
 
-echo "⏳ Ждём, пока Gitea поднимется…"
+echo "⏳ Waiting for Gitea to start..."
 for i in {1..60}; do
   if curl -fs "$GITEA_URL/api/v1/version" >/dev/null; then
-    echo "✅ Gitea запустилась"
+    echo "✅ Gitea is up"
     break
   fi
   sleep 1
 done
 
-# ─── 3. СОЗДАЁМ ПОЛЬЗОВАТЕЛЯ demo ─────────────────────────────────────────
+# ─── 3. CREATE demo USER ────────────────────────────────────────────────────
 sudo -u gitea "$BIN_PATH" --work-path "$GITEA_ROOT" --config /etc/gitea/app.ini \
   admin user create --username "$GITEA_USER" \
   --password "$GITEA_PASS" --email "$GITEA_USER@example.com" --admin \
   2>/dev/null || true
 
-# ─── 4. СОЗДАЁМ / ЧИСТИМ РЕПОЗИТОРИЙ ЧЕРЕЗ BASIC-AUTH ────────────────────
-echo "📁 Пересоздаём репозиторий $REPO_NAME"
+# ─── 4. CREATE / CLEAN REPOSITORY VIA BASIC-AUTH ────────────────────────────
+echo "📁 Recreating repository $REPO_NAME"
 curl -s -X DELETE "$GITEA_URL/api/v1/repos/$GITEA_USER/$REPO_NAME" \
      -u "$GITEA_USER:$GITEA_PASS" >/dev/null || true
 
@@ -105,13 +105,13 @@ HTTP=$(curl -s -o /tmp/resp.json -w '%{http_code}' \
         -d '{"name":"'"$REPO_NAME"'","auto_init":true,"default_branch":"main"}')
 
 if [ "$HTTP" != "201" ]; then
-  echo "❌ Не удалось создать репозиторий (HTTP $HTTP)"
+  echo "❌ Failed to create repository (HTTP $HTTP)"
   cat /tmp/resp.json
   exit 1
 fi
-echo "✅ Репозиторий создан"
+echo "✅ Repository created"
 
-# ─── 5. ДВА КОММИТА И PUSH ───────────────────────────────────────────────
+# ─── 5. TWO COMMITS AND PUSH ───────────────────────────────────────────────
 cd "$REPO_DIR"
 rm -rf .git
 git init --initial-branch=main
@@ -119,20 +119,20 @@ git config user.name  "$GITEA_USER"
 git config user.email "$GITEA_USER@example.com"
 git remote add origin "http://$GITEA_USER:$GITEA_PASS@localhost:3000/$GITEA_USER/$REPO_NAME.git"
 
-# подтягиваем README, чтобы push был fast-forward
+# pull README to make push fast-forward
 git pull --quiet origin main
 
-echo "🚀 Пушим рабочий коммит"
+echo "🚀 Pushing working commit"
 git add .
 git commit -m "✅ Initial working commit"
 git push -u origin main
 
-echo "💥 Вносим баги и пушим"
+echo "💥 Adding bugs and pushing"
 sed -i 's/SYMBOL = "BTCUSDT"/SYMBOL = "BTCUSD"/' binance_service/main.py
 sed -i 's/return trades/return str(trades)/'      backend/main.py
 sed -i 's/random.choice(\[True, False\])/random.choice(["True", "False"])/' binance_service/main.py
 git add .
-git commit -m "💥 break: str instead of Decimal + fake bool"
+git commit -m "Idk just vibecoded something, not sure what it does exactly 💀"
 git push -u origin main
 
-echo "✅ Gitea готова, два коммита отпушены"
+echo "✅ Gitea is ready, two commits pushed"

@@ -86,7 +86,7 @@ sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $SERVICE
 
 # Initialize database
 echo "Initializing database..."
-sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f init.sql
+sudo -u "$SERVICE_USER" psql -U "$SERVICE_USER" -d interview_db -f database/init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
