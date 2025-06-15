@@ -115,6 +115,7 @@ echo "✅ Repository created"
 cd "$REPO_DIR"
 rm -rf .git
 git init --initial-branch=main
+git config --global --add safe.directory /opt/app/interview-service
 git config user.name  "$GITEA_USER"
 git config user.email "$GITEA_USER@example.com"
 git remote add origin "http://$GITEA_USER:$GITEA_PASS@localhost:3000/$GITEA_USER/$REPO_NAME.git"

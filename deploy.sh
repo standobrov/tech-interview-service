@@ -53,7 +53,7 @@ sudo usermod -aG sudo "$ADMIN_USER"
 
 # Prevent SSH access for interview_user
 echo "DenyUsers $ADMIN_USER" | sudo tee /etc/ssh/sshd_config.d/deny_interview_user.conf > /dev/null
-sudo systemctl restart sshd
+sudo systemctl restart ssh
 
 # Create service user (can't connect via SSH, no sudo rights)
 echo "Creating service user..."
@@ -113,76 +113,86 @@ sudo chown -R www-data:www-data /var/www/tech-interview-stand
 
 # Generate help.sh with actual credentials
 echo "Generating help.sh..."
+
+# First create temporary help content
+cat > /tmp/help_tmp <<EOF
+🔑 Your SSH Credentials
+======================
+Username: $SSH_USER
+Password: $SSH_PASS
+
+⚠️  Troubleshooting Access
+========================
+For troubleshooting, switch to user $ADMIN_USER
+   Password: $ADMIN_PASS
+
+This user has sudo rights and is intended for system maintenance.
+
+🗄️ Database Credentials
+======================
+Database: interview_db
+Username: $SERVICE_USER
+Password: interview_password
+Host: localhost
+Port: 5432
+Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/interview_db
+
+
+
+🔧 System Information
+===================
+1. Dashboard frontendn (Nginx)
+   - Serves static files
+   - Proxies API requests to backend
+   - Systemd unit: nginx.service
+
+2. Backend (FastAPI)
+   - Port: 8000
+   - Endpoints:
+     * GET /api/trades - List all trades
+     * GET /api/trades?limit=N - List N latest trades
+   - Systemd unit: tech-interview-stand-backend.service
+
+3. Binance Service
+   - Fetches trades from Binance API
+   - Transforms data and adds "suspicious" flag
+   - Saves trades to PostgreSQL database
+   - Systemd unit: tech-interview-stand-binance.service
+
+🗄️ Database Structure
+===================
+Database: interview_db
+Table: trades
+Fields:
+  - id: SERIAL PRIMARY KEY
+  - symbol: TEXT
+  - price: NUMERIC(18,8)
+  - quantity: NUMERIC(18,8)
+  - price_per_unit: NUMERIC(18,8) (computed)
+  - trade_timestamp: TIMESTAMPTZ
+  - suspicious: BOOLEAN
+
+=================================
+generated: $(date)
+EOF
+
+# Encode the content to base64
+HELP_CONTENT_BASE64=$(base64 /tmp/help_tmp)
+
+# Create the final help.sh script
 cat > /tmp/help.sh <<EOF
 #!/bin/bash
 
-echo "🔑 Your SSH Credentials"
-echo "======================"
-echo "Username: $SSH_USER"
-echo "Password: $SSH_PASS"
-echo
+DOCUMENTATION="$HELP_CONTENT_BASE64"
 
-echo "🗄️ Database Credentials"
-echo "======================"
-echo "Database: interview_db"
-echo "Username: $SERVICE_USER"
-echo "Password: interview_password"
-echo "Host: localhost"
-echo "Port: 5432"
-echo "Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/interview_db"
-echo
-
-echo "⚠️  Troubleshooting Access"
-echo "========================"
-echo "For troubleshooting, switch to user $ADMIN_USER"
-echo "   Password: $ADMIN_PASS"
-echo
-echo "This user has sudo rights and is intended for system maintenance."
-echo
-
-echo "🔧 System Information"
-echo "==================="
-echo "1. Dashboard frontendn (Nginx)"
-echo "   - Serves static files"
-echo "   - Proxies API requests to backend"
-echo "   - Systemd unit: nginx.service"
-echo
-echo "2. Backend (FastAPI)"
-echo "   - Port: 8000"
-echo "   - Endpoints:"
-echo "     * GET /api/trades - List all trades"
-echo "     * GET /api/trades?limit=N - List N latest trades"
-echo "   - Systemd unit: tech-interview-stand-backend.service"
-echo
-echo "3. Binance Service"
-echo "   - Fetches trades from Binance API"
-echo "   - Transforms data and adds "suspicious" flag"
-echo "   - Saves trades to PostgreSQL database"
-echo "   - Systemd unit: tech-interview-stand-binance.service"
-echo
-
-echo "🗄️ Database Structure"
-echo "==================="
-echo "Database: interview_db"
-echo "Table: trades"
-echo "Fields:"
-echo "  - id: SERIAL PRIMARY KEY"
-echo "  - symbol: TEXT"
-echo "  - price: NUMERIC(18,8)"
-echo "  - quantity: NUMERIC(18,8)"
-echo "  - price_per_unit: NUMERIC(18,8) (computed)"
-echo "  - trade_timestamp: TIMESTAMPTZ"
-echo "  - suspicious: BOOLEAN"
-echo
-
-echo "================================="
-echo "generated: $(date)"
+# Decode and display
+echo "\$DOCUMENTATION" | base64 -d
 EOF
 
 cd /tmp
 tar czf /home/$SSH_USER/help.tar.gz help.sh
 sudo chown $SSH_USER:$SSH_USER /home/$SSH_USER/help.tar.gz
-rm /tmp/help.sh
+rm /tmp/help.sh /tmp/help_tmp
 
 # Reload systemd and start services
 echo "Starting services..."

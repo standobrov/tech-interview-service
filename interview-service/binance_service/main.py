@@ -4,7 +4,9 @@ from decimal import Decimal
 from datetime import datetime, timezone
 import random
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+DATABASE_URL = "postgresql://interview_service_user:interview_password@localhost:5432/interview_db"
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 SYMBOL = "BTCUSDT"
