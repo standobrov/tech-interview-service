@@ -142,11 +142,48 @@ Host: localhost
 Port: 5432
 Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/interview_db
 
+📊 Service Overview
+==================
+This is a demo service for a technical interview, implementing a simple ETL process:
+1. Fetches real-time trade data from Binance
+2. Marks "suspicious" trades
+3. Stores trade data in PostgreSQL
+4. Provides a web dashboard
 
+Architecture Diagram:
+===================
++----------------+     +----------------+     +----------------+
+|                |     |                |     |                |
+|  Binance API   +---->+  Binance       +---->+  PostgreSQL    |
+|                |     |  Service       |     |  Database      |
++----------------+     +----------------+     +----------------+
+                                                     |
+                                                     |
+                                                     |
+                       +----------------+            |
+                       |                |            |
+                       |  FastAPI       |<-----------+
+                       |  Backend       |
+                       +----------------+
+                              |
+                              V
+                       +----------------+
+                       |                |
+                       |  Nginx         |
+                       |  Frontend      |
+                       +----------------+
+                              |
+                              V
+                       +----------------+
+                       |                |
+                       |  User          |
+                       |  Browser       |
+                       +----------------+
 
 🔧 System Information
 ===================
-1. Dashboard frontendn (Nginx)
+1. Dashboard frontend (Nginx)
+   - Port: 80
    - Serves static files
    - Proxies API requests to backend
    - Systemd unit: nginx.service
@@ -160,7 +197,7 @@ Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/
 
 3. Binance Service
    - Fetches trades from Binance API
-   - Transforms data and adds "suspicious" flag
+   - Adds "suspicious" flag
    - Saves trades to PostgreSQL database
    - Systemd unit: tech-interview-stand-binance.service
 
