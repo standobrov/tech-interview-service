@@ -18,11 +18,11 @@ surnames=(
 random_name=${names[$RANDOM % ${#names[@]}]}
 random_surname=${surnames[$RANDOM % ${#surnames[@]}]}
 SSH_USER="${random_name}_${random_surname}"
-SSH_PASS="$(openssl rand -base64 12)"
+SSH_PASS="$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)"
 
 # Define user names
 ADMIN_USER="interview_user"
-ADMIN_PASS="$(openssl rand -base64 12)"
+ADMIN_PASS="$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)"
 SERVICE_USER="interview_service_user"
 
 echo "Generated SSH credentials:"
@@ -93,7 +93,7 @@ sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $ADMIN_U
 
 # Initialize database
 echo "Initializing database..."
-sudo -u postgres psql -d interview_db -f /tmp/init.sql
+sudo -u postgres psql -d interview_db -f /opt/app/interview-service/database/init.sql
 
 # Copy systemd service files
 echo "Setting up systemd services..."
@@ -136,11 +136,11 @@ This user has sudo rights and is intended for system maintenance.
 🗄️ Database Credentials
 ======================
 Database: interview_db
-Username: $SERVICE_USER
-Password: interview_password
+Username: $ADMIN_USER
+Password: $ADMIN_PASS
 Host: localhost
 Port: 5432
-Connection string: postgresql://$SERVICE_USER:interview_password@localhost:5432/interview_db
+Connection string: postgresql://$SERVICE_USER:$ADMIN_PASS@localhost:5432/interview_db
 
 📊 Service Overview
 ==================
@@ -261,4 +261,14 @@ echo "3. $SERVICE_USER - Service user (no SSH access, no sudo rights)"
 
 # Add Environment=DATABASE_URL=postgresql://interview_service_user:interview_password@localhost:5432/interview_db to systemd service files
 sudo sed -i "s/Environment=.*/Environment=DATABASE_URL=postgresql:\/\/interview_service_user:interview_password@localhost:5432\/interview_db/" /etc/systemd/system/tech-interview-stand-backend.service
-sudo sed -i "s/Environment=.*/Environment=DATABASE_URL=postgresql:\/\/interview_service_user:interview_password@localhost:5432\/interview_db/" /etc/systemd/system/tech-interview-stand-binance.service 
+sudo sed -i "s/Environment=.*/Environment=DATABASE_URL=postgresql:\/\/interview_service_user:interview_password@localhost:5432\/interview_db/" /etc/systemd/system/tech-interview-stand-binance.service
+
+# Get server IP
+SERVER_IP=$(hostname -I | awk '{print $1}')
+
+echo ""
+echo "=========================================="
+echo "Server URL: http://$SERVER_IP"
+echo "SSH Username: $SSH_USER"
+echo "SSH Password: $SSH_PASS"
+echo "==========================================" 
