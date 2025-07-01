@@ -95,6 +95,19 @@ sudo -u postgres psql -d interview_db -c "GRANT ALL ON SCHEMA public TO $ADMIN_U
 echo "Initializing database..."
 sudo -u postgres psql -d interview_db -f /opt/app/interview-service/database/init.sql
 
+# Grant explicit table permissions to service user
+echo "Granting table permissions..."
+sudo -u postgres psql -d interview_db -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $SERVICE_USER;"
+sudo -u postgres psql -d interview_db -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $SERVICE_USER;"
+sudo -u postgres psql -d interview_db -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $SERVICE_USER;"
+sudo -u postgres psql -d interview_db -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $SERVICE_USER;"
+
+# Grant explicit table permissions to admin user
+sudo -u postgres psql -d interview_db -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $ADMIN_USER;"
+sudo -u postgres psql -d interview_db -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $ADMIN_USER;"
+sudo -u postgres psql -d interview_db -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $ADMIN_USER;"
+sudo -u postgres psql -d interview_db -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $ADMIN_USER;"
+
 # Copy systemd service files
 echo "Setting up systemd services..."
 sudo cp /opt/app/interview-service/systemd/interview-backend.service /etc/systemd/system/tech-interview-stand-backend.service
